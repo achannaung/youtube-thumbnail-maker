@@ -1,0 +1,649 @@
+<!DOCTYPE html>
+<html lang="my">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>YouTube Thumbnail Maker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Myanmar:wght@500;700;900&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0f1115; --card:#171a21; --line:#262b36; --txt:#eef1f6; --dim:#9aa4b5;
+    --accent:#ffc500; --accent2:#ff4757; --ok:#2ed573;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--txt);font-family:"Noto Sans Myanmar",system-ui,sans-serif}
+  header{padding:18px 20px 6px;text-align:center}
+  header h1{margin:0;font-size:24px}
+  header p{margin:4px 0 0;color:var(--dim);font-size:13px}
+  .wrap{max-width:1060px;margin:0 auto;padding:14px 16px 40px;display:grid;grid-template-columns:340px 1fr;gap:16px}
+  @media (max-width:820px){.wrap{grid-template-columns:1fr}}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px}
+  .card h2{margin:0 0 10px;font-size:15px;color:var(--accent)}
+  label{display:block;font-size:13px;color:var(--dim);margin:12px 0 5px}
+  label:first-of-type{margin-top:0}
+  input[type=text],input[type=password],select,textarea{
+    width:100%;background:#0d0f13;border:1px solid var(--line);border-radius:9px;color:var(--txt);
+    padding:9px 11px;font-size:14px;font-family:inherit;outline:none}
+  input:focus,select:focus,textarea:focus{border-color:var(--accent)}
+  textarea{resize:vertical;min-height:56px}
+  .row{display:flex;gap:8px}
+  .row>*{flex:1}
+  .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+  .chip{border:1px solid var(--line);background:#0d0f13;color:var(--dim);border-radius:999px;
+    padding:4px 12px;font-size:12.5px;cursor:pointer;font-family:inherit}
+  .chip.on{color:#111;background:var(--accent);border-color:var(--accent);font-weight:700}
+  button.main{width:100%;margin-top:16px;background:var(--accent2);color:#fff;border:0;border-radius:10px;
+    padding:12px;font-size:15.5px;font-weight:700;cursor:pointer;font-family:inherit}
+  button.main:disabled{opacity:.5;cursor:wait}
+  button.sub{flex:1;background:#232833;color:var(--txt);border:1px solid var(--line);border-radius:10px;
+    padding:10px;font-size:14px;cursor:pointer;font-family:inherit}
+  button.sub:disabled{opacity:.4;cursor:not-allowed}
+  .keyrow{display:flex;gap:8px}
+  .keyrow input{flex:1}
+  .keyrow button{flex:0 0 auto;background:#232833;border:1px solid var(--line);color:var(--txt);
+    border-radius:9px;padding:0 12px;cursor:pointer;font-family:inherit;font-size:13px}
+  .hint{font-size:12px;color:var(--dim);margin-top:6px;line-height:1.5}
+  #status{font-size:13.5px;margin-top:12px;min-height:20px;line-height:1.55}
+  .err{color:#ff6b81}.good{color:var(--ok)}
+  .stage{background:#000;border:1px solid var(--line);border-radius:14px;overflow:hidden}
+  canvas{width:100%;display:block;aspect-ratio:16/9;background:#111;touch-action:none}
+  .dlrow{display:flex;gap:8px;margin-top:12px}
+  .swatch{display:flex;gap:6px;margin-top:6px}
+  .sizerow{display:flex;align-items:center;gap:10px;margin-top:7px}
+  .sizerow span:first-child{flex:0 0 74px;font-size:13px;color:var(--dim)}
+  .sizerow input[type=range]{flex:1;accent-color:var(--accent)}
+  .szval{flex:0 0 52px;font-size:12.5px;color:var(--dim);text-align:right}
+  .sw{width:30px;height:30px;border-radius:8px;border:2px solid transparent;cursor:pointer}
+  .sw.on{border-color:#fff}
+  footer{text-align:center;color:var(--dim);font-size:12px;padding:0 16px 22px}
+</style>
+</head>
+<body>
+<header>
+  <h1>🎬 YouTube Thumbnail Maker</h1>
+  <p>Subject ညာဘက် · Title ဘယ်ဘက် · Highlight ညာအောက် — စာသားအတိအကျ၊ အပိုမပါ</p>
+</header>
+
+<div class="wrap">
+  <div>
+    <div class="card">
+      <h2>🔑 Gemini API Key</h2>
+      <div class="keyrow">
+        <input type="password" id="apiKey" placeholder="Gemini API key ထည့်ပါ" autocomplete="off">
+        <button id="toggleKey" type="button">ပြ</button>
+      </div>
+      <div class="hint">Key ကို browser ထဲမှာပဲ သိမ်းထားတယ် (localStorage) — ဘယ်ကိုမှ မပို့ဘူး။</div>
+      <label>Image model</label>
+      <select id="modelSel"><option value="gemini-2.5-flash-image">gemini-2.5-flash-image</option></select>
+      <div class="hint" id="modelHint"></div>
+    </div>
+
+    <div class="card" style="margin-top:16px">
+      <h2>📝 Thumbnail အချက်အလက်</h2>
+      <label>Background ပုံစံ</label>
+      <input type="text" id="bgInput" value="Golden temple, warm glowing light rays">
+      <div class="chips" id="bgChips">
+        <button class="chip" data-bg="Golden temple, warm glowing light rays">Golden</button>
+        <button class="chip" data-bg="Cold blue misty mountains, moody cold light">Cold</button>
+        <button class="chip" data-bg="Purple to orange sunset gradient sky">Gradient</button>
+        <button class="chip" data-bg="Dark dramatic storm clouds, lightning glow">Dark</button>
+        <button class="chip" data-bg="Peaceful green forest, soft morning light">Nature</button>
+      </div>
+
+      <label>Title (ဘယ်ဘက်၊ စာလုံးအကြီး)</label>
+      <input type="text" id="titleInput" placeholder="ဥပမာ — မာန်မာန ၄ မျိုး">
+      <label>Subtitle (Title အောက်၊ စာလုံးသေး)</label>
+      <input type="text" id="subtitleInput" placeholder="မရှိရင် လွတ်ထားပါ">
+      <label>Highlight text (ညာအောက်ထောင့်)</label>
+      <input type="text" id="highlightInput" placeholder="ဥပမာ — ပါချုပ်ဆရာတော်">
+
+      <label>Title အရောင်</label>
+      <div class="swatch" id="colorSwatch">
+        <div class="sw on" data-c1="#ffffff" data-c2="#ffc500" style="background:linear-gradient(135deg,#fff 50%,#ffc500 50%)" title="အဖြူ + အဝါ"></div>
+        <div class="sw" data-c1="#ffc500" data-c2="#ffffff" style="background:linear-gradient(135deg,#ffc500 50%,#fff 50%)" title="အဝါ + အဖြူ"></div>
+        <div class="sw" data-c1="#ffffff" data-c2="#ff4757" style="background:linear-gradient(135deg,#fff 50%,#ff4757 50%)" title="အဖြူ + အနီ"></div>
+        <div class="sw" data-c1="#ffe45e" data-c2="#ffe45e" style="background:#ffe45e" title="အဝါချည်း"></div>
+      </div>
+
+      <label>စာလုံးအရွယ် (Font size)</label>
+      <div class="sizerow"><span>Title</span><input type="range" id="titleSize" min="140" max="420" step="10" value="270"><span class="szval" id="titleSizeVal">270px</span></div>
+      <div class="sizerow"><span>Subtitle</span><input type="range" id="subSize" min="40" max="180" step="4" value="84"><span class="szval" id="subSizeVal">84px</span></div>
+      <div class="sizerow"><span>Highlight</span><input type="range" id="hlSize" min="40" max="180" step="4" value="84"><span class="szval" id="hlSizeVal">84px</span></div>
+
+      <label>Custom Font (TTF / OTF / WOFF / WOFF2)</label>
+      <input type="file" id="fontInput" accept=".ttf,.otf,.woff,.woff2">
+      <div class="row" id="fontActiveRow" style="display:none;margin-top:8px">
+        <span id="fontName" style="font-size:13px;color:var(--ok);align-self:center"></span>
+        <button class="sub" id="fontRemove" type="button" style="flex:0 0 auto;padding:6px 12px">မူရင်း font ပြန်သုံးမယ်</button>
+      </div>
+      <div class="hint">Font တင်ရင် Title / Subtitle / Highlight အားလုံး အဲဒီ font နဲ့ ဆွဲမယ်။ Browser ထဲမှာပဲ သိမ်းထားတယ် — နောက်တစ်ခါ ဖွင့်ရင် ပြန်ပါတယ်။</div>
+
+      <label>Subject (ညာဘက်မှာ ထားမည့်အရာ)</label>
+      <textarea id="subjectInput" placeholder="ဥပမာ — a dignified elderly Burmese Buddhist monk abbot in maroon robes, serene expression">a dignified elderly Burmese Buddhist monk abbot in maroon robes, serene wise expression</textarea>
+      <label>Subject ဓာတ်ပုံ upload (ရှိရင် — လူပုံကို ညာဘက်ထားမယ်)</label>
+      <input type="file" id="photoInput" accept="image/*">
+      <div class="hint" id="photoHint"></div>
+
+      <button class="main" id="genBtn">🎨 Thumbnail ထုတ်မယ်</button>
+      <button class="sub" id="freeBtn" type="button" style="width:100%;margin-top:10px">🆓 Free backup နဲ့ ထုတ်မယ် (key / quota မလို)</button>
+      <div id="status"></div>
+    </div>
+  </div>
+
+  <div>
+    <div class="stage"><canvas id="cv" width="1920" height="1080"></canvas></div>
+    <div class="dlrow">
+      <button class="sub" id="dlPng" disabled>⬇ PNG ဒေါင်းရန်</button>
+      <button class="sub" id="dlJpg" disabled>⬇ JPG ဒေါင်းရန် (YouTube အတွက်)</button>
+    </div>
+    <div style="margin-top:14px">
+      <label>နောက်ခံပုံ ကိုယ်တိုင် upload (Gemini quota မရှိရင် ဒါသုံးပါ)</label>
+      <input type="file" id="bgUpload" accept="image/*">
+    </div>
+    <div class="dlrow">
+      <button class="sub" id="posReset" type="button">↺ စာသားနေရာ မူရင်းပြန်ထားရန်</button>
+    </div>
+    <div class="hint" style="margin-top:8px">စာသားတွေကို preview ပေါ်မှာ **လက်နဲ့ ဆွဲရွှေ့**ပြီး လိုတဲ့နေရာ ထားလို့ရတယ်။ စာသားပြင်တာနဲ့ preview က တန်းပြင်တယ် — ပုံအသစ် ပြန်ထုတ်စရာ မလိုဘူး။</div>
+  </div>
+</div>
+
+<footer>© <span id="year"></span> AChan · YouTube Thumbnail Maker</footer>
+
+<script>
+const $ = id => document.getElementById(id);
+const cv = $("cv"), ctx = cv.getContext("2d");
+const W = 1920, H = 1080;
+let baseImg = null;
+let photoData = null; // {mime, b64}
+let titleColors = ["#ffffff", "#ffc500"];
+let activeFont = "Noto Sans Myanmar";
+const fontStack = () => '"' + activeFont + '", "Noto Sans Myanmar", sans-serif';
+
+$("year").textContent = new Date().getFullYear();
+
+// ---------- API key ----------
+$("apiKey").value = localStorage.getItem("ytthumb_gemini_key") || "";
+$("apiKey").addEventListener("change", () => {
+  localStorage.setItem("ytthumb_gemini_key", $("apiKey").value.trim());
+  discoverModels();
+});
+$("toggleKey").onclick = () => {
+  const k = $("apiKey");
+  k.type = k.type === "password" ? "text" : "password";
+  $("toggleKey").textContent = k.type === "password" ? "ပြ" : "ဝှက်";
+};
+
+let modelList = [{ name: "gemini-2.5-flash-image", method: "generateContent" }];
+
+async function discoverModels() {
+  const key = $("apiKey").value.trim();
+  if (!key) return;
+  try {
+    const r = await fetch("https://generativelanguage.googleapis.com/v1beta/models?key=" + encodeURIComponent(key));
+    if (!r.ok) return;
+    const j = await r.json();
+    const found = [];
+    (j.models || []).forEach(m => {
+      const name = m.name.replace("models/", "");
+      const methods = m.supportedGenerationMethods || [];
+      if (!/image|imagen/i.test(name)) return;
+      if (methods.includes("generateContent")) found.push({ name, method: "generateContent" });
+      else if (methods.includes("predict")) found.push({ name, method: "predict" });
+    });
+    if (!found.length) return;
+    const rank = m =>
+      m.name === "gemini-2.5-flash-image" ? 0 :
+      m.method === "generateContent" && !/preview/i.test(m.name) ? 1 :
+      m.method === "generateContent" ? 2 : 3;
+    found.sort((a, b) => rank(a) - rank(b));
+    modelList = found;
+    const sel = $("modelSel");
+    sel.innerHTML = "";
+    found.forEach(m => {
+      const o = document.createElement("option");
+      o.value = m.name; o.textContent = m.name;
+      sel.appendChild(o);
+    });
+    sel.value = found[0].name;
+    $("modelHint").textContent = "Image model " + found.length + " ခု တွေ့တယ် — တစ်ခုမရရင် ကျန်တာတွေ အလိုအလျောက် စမ်းပေးမယ်။";
+  } catch (e) { /* keep default model */ }
+}
+
+// ---------- background chips ----------
+$("bgChips").addEventListener("click", e => {
+  const b = e.target.closest(".chip"); if (!b) return;
+  document.querySelectorAll("#bgChips .chip").forEach(c => c.classList.remove("on"));
+  b.classList.add("on");
+  $("bgInput").value = b.dataset.bg;
+});
+
+// ---------- title colors ----------
+$("colorSwatch").addEventListener("click", e => {
+  const s = e.target.closest(".sw"); if (!s) return;
+  document.querySelectorAll(".sw").forEach(x => x.classList.remove("on"));
+  s.classList.add("on");
+  titleColors = [s.dataset.c1, s.dataset.c2];
+  draw();
+});
+
+// ---------- subject photo ----------
+$("photoInput").addEventListener("change", () => {
+  const f = $("photoInput").files[0];
+  if (!f) { photoData = null; $("photoHint").textContent = ""; return; }
+  const rd = new FileReader();
+  rd.onload = () => {
+    photoData = { mime: f.type, b64: rd.result.split(",")[1] };
+    $("photoHint").textContent = "ဓာတ်ပုံ ရပြီ — ထုတ်တဲ့အခါ ဒီလူကို ညာဘက်မှာ ထားမယ်။";
+  };
+  rd.readAsDataURL(f);
+});
+
+// ---------- text drawing (browser shapes Burmese correctly) ----------
+function fitFont(text, weight, startPx, maxW) {
+  let px = startPx;
+  while (px > 30) {
+    ctx.font = weight + " " + px + "px " + fontStack();
+    if (ctx.measureText(text).width <= maxW) break;
+    px -= 8;
+  }
+  return px;
+}
+
+function drawLine(text, px, weight, color, x, baseline, align) {
+  ctx.font = weight + " " + px + "px " + fontStack();
+  ctx.textAlign = align; ctx.textBaseline = "alphabetic";
+  ctx.lineJoin = "round"; ctx.miterLimit = 2;
+  ctx.shadowColor = "rgba(0,0,0,.55)"; ctx.shadowBlur = 18; ctx.shadowOffsetY = 8;
+  ctx.lineWidth = Math.max(6, px / 10);
+  ctx.strokeStyle = "rgba(15,8,0,.92)";
+  ctx.strokeText(text, x, baseline);
+  ctx.shadowColor = "transparent"; ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
+  ctx.fillStyle = color;
+  ctx.fillText(text, x, baseline);
+}
+
+function splitTitle(t) {
+  const words = t.trim().split(/\s+/);
+  if (words.length < 2) return [t.trim()];
+  let best = 1, bestDiff = 1e18;
+  for (let i = 1; i < words.length; i++) {
+    const a = words.slice(0, i).join(" ").length, b = words.slice(i).join(" ").length;
+    if (Math.abs(a - b) < bestDiff) { bestDiff = Math.abs(a - b); best = i; }
+  }
+  return [words.slice(0, best).join(" "), words.slice(best).join(" ")];
+}
+
+// ---------- draggable text blocks ----------
+const pos = { title: null, sub: null, hl: null }; // null = auto layout
+let boxes = {};
+let drag = null;
+
+function textWidth(text, px, weight) {
+  ctx.font = weight + " " + px + "px " + fontStack();
+  return ctx.measureText(text).width;
+}
+
+function draw() {
+  boxes = {};
+  ctx.clearRect(0, 0, W, H);
+  if (baseImg) {
+    const s = Math.max(W / baseImg.width, H / baseImg.height);
+    const w = baseImg.width * s, h = baseImg.height * s;
+    ctx.drawImage(baseImg, (W - w) / 2, (H - h) / 2, w, h);
+  } else {
+    const g = ctx.createLinearGradient(0, 0, W, H);
+    g.addColorStop(0, "#241a05"); g.addColorStop(1, "#57420c");
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = "rgba(255,255,255,.5)";
+    ctx.font = "500 44px " + fontStack();
+    ctx.textAlign = "center";
+    ctx.fillText("ပုံ မထုတ်ရသေးပါ", W / 2, H / 2);
+  }
+  const title = $("titleInput").value.trim();
+  const sub = $("subtitleInput").value.trim();
+  const hl = $("highlightInput").value.trim();
+  const maxW = 1020;
+  let titleLastBase = 400;
+  if (title) {
+    const lines = splitTitle(title);
+    const titleBase = +$("titleSize").value;
+    let px = titleBase;
+    lines.forEach(ln => { px = Math.min(px, fitFont(ln, 900, titleBase, maxW)); });
+    const gap = px * 1.62; // Burmese stacks are tall
+    const tp = pos.title || { x: 85, y: lines.length === 1 ? 520 : 395 };
+    drawLine(lines[0], px, 900, titleColors[0], tp.x, tp.y, "left");
+    titleLastBase = tp.y;
+    if (lines[1]) { titleLastBase = tp.y + gap; drawLine(lines[1], px, 900, titleColors[1], tp.x, titleLastBase, "left"); }
+    const wMax = Math.max(...lines.map(l => textWidth(l, px, 900)));
+    boxes.title = { x: tp.x - 12, y: tp.y - px * 1.25, w: wMax + 24, h: (titleLastBase - tp.y) + px * 1.7, ax: 12, ay: px * 1.25 };
+  }
+  if (sub) {
+    const px = fitFont(sub, 700, +$("subSize").value, maxW);
+    const sp = pos.sub || { x: 85, y: title ? titleLastBase + px * 1.55 : 520 };
+    drawLine(sub, px, 700, "#ffe45e", sp.x, sp.y, "left");
+    boxes.sub = { x: sp.x - 12, y: sp.y - px * 1.25, w: textWidth(sub, px, 700) + 24, h: px * 1.7, ax: 12, ay: px * 1.25 };
+  }
+  if (hl) {
+    const px = fitFont(hl, 700, +$("hlSize").value, 1020);
+    const tw = textWidth(hl, px, 700);
+    const padX = 36, padY = 22;
+    const hp = pos.hl || { x: W - 55 - tw - padX * 2, y: H - 58 - px * 1.35 - padY };
+    ctx.beginPath();
+    ctx.roundRect(hp.x, hp.y, tw + padX * 2, px * 1.35 + padY, 26);
+    ctx.fillStyle = "rgba(0,0,0,.62)"; ctx.fill();
+    drawLine(hl, px, 700, "#ffffff", hp.x + tw + padX, hp.y + padY + px * 1.02, "right");
+    boxes.hl = { x: hp.x, y: hp.y, w: tw + padX * 2, h: px * 1.35 + padY, ax: 0, ay: 0 };
+  }
+  if (drag && boxes[drag.k]) {
+    const b = boxes[drag.k];
+    ctx.save();
+    ctx.setLineDash([14, 10]); ctx.lineWidth = 3; ctx.strokeStyle = "#ffc500";
+    ctx.strokeRect(b.x, b.y, b.w, b.h);
+    ctx.restore();
+  }
+}
+
+function canvasPoint(e) {
+  const r = cv.getBoundingClientRect();
+  return { x: (e.clientX - r.left) * W / r.width, y: (e.clientY - r.top) * H / r.height };
+}
+function hitBlock(p) {
+  for (const k of ["hl", "sub", "title"]) {
+    const b = boxes[k];
+    if (b && p.x >= b.x && p.x <= b.x + b.w && p.y >= b.y && p.y <= b.y + b.h) return k;
+  }
+  return null;
+}
+cv.addEventListener("pointerdown", e => {
+  const p = canvasPoint(e);
+  const k = hitBlock(p);
+  if (!k) return;
+  const b = boxes[k];
+  drag = { k, dx: p.x - b.x, dy: p.y - b.y };
+  try { cv.setPointerCapture(e.pointerId); } catch (err) {}
+  cv.style.cursor = "grabbing";
+  draw();
+  e.preventDefault();
+});
+cv.addEventListener("pointermove", e => {
+  const p = canvasPoint(e);
+  if (drag) {
+    const b = boxes[drag.k];
+    const nx = p.x - drag.dx, ny = p.y - drag.dy;
+    pos[drag.k] = { x: nx + b.ax, y: ny + b.ay };
+    draw();
+  } else {
+    cv.style.cursor = hitBlock(p) ? "grab" : "default";
+  }
+});
+["pointerup", "pointercancel"].forEach(ev => cv.addEventListener(ev, () => {
+  drag = null; cv.style.cursor = "default"; draw();
+}));
+$("posReset").onclick = () => { pos.title = pos.sub = pos.hl = null; draw(); };
+
+["titleInput", "subtitleInput", "highlightInput"].forEach(id =>
+  $(id).addEventListener("input", draw));
+
+[["titleSize", "titleSizeVal"], ["subSize", "subSizeVal"], ["hlSize", "hlSizeVal"]].forEach(([id, vid]) =>
+  $(id).addEventListener("input", () => { $(vid).textContent = $(id).value + "px"; draw(); }));
+
+// ---------- custom font (FontFace + IndexedDB) ----------
+function idbOpen() {
+  return new Promise((res, rej) => {
+    const r = indexedDB.open("ytthumb", 1);
+    r.onupgradeneeded = () => r.result.createObjectStore("kv");
+    r.onsuccess = () => res(r.result);
+    r.onerror = () => rej(r.error);
+  });
+}
+async function idbSet(k, v) {
+  const db = await idbOpen();
+  return new Promise((res, rej) => {
+    const tx = db.transaction("kv", "readwrite");
+    tx.objectStore("kv").put(v, k);
+    tx.oncomplete = res; tx.onerror = () => rej(tx.error);
+  });
+}
+async function idbGet(k) {
+  const db = await idbOpen();
+  return new Promise((res, rej) => {
+    const rq = db.transaction("kv").objectStore("kv").get(k);
+    rq.onsuccess = () => res(rq.result);
+    rq.onerror = () => rej(rq.error);
+  });
+}
+async function idbDel(k) {
+  const db = await idbOpen();
+  return new Promise((res, rej) => {
+    const tx = db.transaction("kv", "readwrite");
+    tx.objectStore("kv").delete(k);
+    tx.oncomplete = res; tx.onerror = () => rej(tx.error);
+  });
+}
+
+let customFace = null;
+async function registerFont(buf, name) {
+  const face = new FontFace("CustomThumbFont", buf);
+  await face.load();
+  if (customFace) { try { document.fonts.delete(customFace); } catch (e) {} }
+  customFace = face;
+  document.fonts.add(face);
+  activeFont = "CustomThumbFont";
+  $("fontName").textContent = "✓ " + name;
+  $("fontActiveRow").style.display = "flex";
+  draw();
+}
+
+$("fontInput").addEventListener("change", async () => {
+  const f = $("fontInput").files[0];
+  if (!f) return;
+  try {
+    const buf = await f.arrayBuffer();
+    await registerFont(buf, f.name);
+    try { await idbSet("customFont", { name: f.name, buf }); } catch (e) {}
+    setStatus("Custom font ရပြီ ✅", "good");
+  } catch (e) {
+    setStatus("Font ဖွင့်မရပါ — TTF/OTF/WOFF file မှန်ရဲ့လား စစ်ကြည့်ပါ။", "err");
+  }
+});
+
+$("fontRemove").onclick = async () => {
+  if (customFace) { try { document.fonts.delete(customFace); } catch (e) {} customFace = null; }
+  activeFont = "Noto Sans Myanmar";
+  $("fontActiveRow").style.display = "none";
+  $("fontInput").value = "";
+  try { await idbDel("customFont"); } catch (e) {}
+  draw();
+};
+
+// ---------- generation ----------
+function setStatus(msg, cls) {
+  const s = $("status");
+  s.textContent = msg; s.className = cls || "";
+}
+
+async function callGemini(key, model, parts, withImgCfg) {
+  const body = { contents: [{ parts }], generationConfig: { responseModalities: ["IMAGE"] } };
+  if (withImgCfg) body.generationConfig.imageConfig = { aspectRatio: "16:9" };
+  const r = await fetch("https://generativelanguage.googleapis.com/v1beta/models/" +
+    encodeURIComponent(model) + ":generateContent?key=" + encodeURIComponent(key), {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body)
+  });
+  const j = await r.json();
+  if (!r.ok) throw new Error((j.error && j.error.message) || ("HTTP " + r.status));
+  const p = (((j.candidates || [])[0] || {}).content || {}).parts || [];
+  const img = p.find(x => x.inlineData);
+  if (!img) throw new Error("Gemini က ပုံ ပြန်မပေးပါ — subject ဖော်ပြချက် ပြင်ပြီး ပြန်စမ်းကြည့်ပါ။");
+  return img.inlineData;
+}
+
+async function callImagen(key, model, prompt) {
+  const body = { instances: [{ prompt }],
+    parameters: { sampleCount: 1, aspectRatio: "16:9" } };
+  const r = await fetch("https://generativelanguage.googleapis.com/v1beta/models/" +
+    encodeURIComponent(model) + ":predict?key=" + encodeURIComponent(key), {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body)
+  });
+  const j = await r.json();
+  if (!r.ok) throw new Error((j.error && j.error.message) || ("HTTP " + r.status));
+  const p = (j.predictions || [])[0];
+  if (!p || !p.bytesBase64Encoded) throw new Error("Imagen က ပုံ ပြန်မပေးပါ။");
+  return { mimeType: p.mimeType || "image/png", data: p.bytesBase64Encoded };
+}
+
+function isQuotaErr(e) {
+  return /quota|429|RESOURCE_EXHAUSTED|rate/i.test(e.message || "");
+}
+
+$("genBtn").onclick = async () => {
+  const key = $("apiKey").value.trim();
+  if (!key) { setStatus("Gemini API key အရင် ထည့်ပါ။", "err"); $("apiKey").focus(); return; }
+  localStorage.setItem("ytthumb_gemini_key", key);
+  const bg = $("bgInput").value.trim() || "Golden";
+  const subject = $("subjectInput").value.trim() ||
+    "a dignified elderly Burmese Buddhist monk abbot in maroon robes";
+  let prompt = "YouTube thumbnail background art, 16:9 widescreen composition. " +
+    "Place the subject on the RIGHT side of the frame: " + subject + ". " +
+    "Background: " + bg + ". Cinematic, HDR, dramatic eye-catching lighting. " +
+    "The LEFT half of the frame must be darker, smooth and completely empty, reserved for big title text. " +
+    "Absolutely no text, no letters, no words, no watermark anywhere in the image.";
+  const parts = [{ text: prompt }];
+  if (photoData) {
+    parts[0].text = "Use the person in the provided photo as the subject. " + prompt;
+    parts.push({ inlineData: { mimeType: photoData.mime, data: photoData.b64 } });
+  }
+  // Try the selected model first, then every other image model in order.
+  const chosen = $("modelSel").value;
+  const order = [...modelList].sort((a, b) =>
+    (a.name === chosen ? 0 : 1) - (b.name === chosen ? 0 : 1));
+  $("genBtn").disabled = true;
+  let lastErr = null, quotaHit = false;
+  for (const m of order) {
+    setStatus("ပုံ ထုတ်နေတယ်… (" + m.name + ")");
+    try {
+      let data;
+      if (m.method === "predict") {
+        data = await callImagen(key, m.name, parts[0].text);
+      } else {
+        try { data = await callGemini(key, m.name, parts, true); }
+        catch (e) { if (isQuotaErr(e)) throw e; data = await callGemini(key, m.name, parts, false); }
+      }
+      const img = new Image();
+      img.onload = () => {
+        baseImg = img; draw();
+        $("dlPng").disabled = $("dlJpg").disabled = false;
+        $("modelSel").value = m.name;
+        setStatus("ရပြီ ✅ (" + m.name + ") — စာသားပြင်ရင် preview တန်းပြင်တယ်။", "good");
+        $("genBtn").disabled = false;
+      };
+      img.onerror = () => { setStatus("ပုံ ဖွင့်မရပါ — ပြန်စမ်းကြည့်ပါ။", "err"); $("genBtn").disabled = false; };
+      img.src = "data:" + data.mimeType + ";base64," + data.data;
+      return;
+    } catch (e) {
+      lastErr = e;
+      if (isQuotaErr(e)) quotaHit = true;
+      if (!/quota|429|RESOURCE_EXHAUSTED|404|not found/i.test(e.message || "")) break;
+    }
+  }
+  $("genBtn").disabled = false;
+  if (lastErr && /denied access/i.test(lastErr.message || "")) {
+    setStatus("ဒီ key ရဲ့ project ကို Google က Gemini API သုံးခွင့် ပိတ်ထားတယ် (project-level denial) — key ပြောင်းလည်း project တူရင် မရပါ။ နည်းလမ်း: (၁) AI Studio မှာ project အသစ် ဆောက်ပြီး key အသစ် ထုတ်ပါ၊ (၂) တခြား Google account ရဲ့ key သုံးပါ၊ (၃) အခုလောလောဆယ် '🆓 Free backup' ခလုတ် (key မလို) နဲ့ ဆက်လုပ်ပါ။", "err");
+  } else if (quotaHit) {
+    setStatus("Model အားလုံး quota ပြည့်နေတယ် (free limit: 0) — ဒီ key ရဲ့ project မှာ ပုံထုတ်ဖို့ အလကား quota မရှိပါ။ နည်းလမ်း: (၁) billing ဖွင့်ထားတဲ့ key သုံးပါ၊ (၂) နောက်နေ့ quota reset အထိ စောင့်ပါ၊ (၃) အောက်က 'နောက်ခံပုံ upload' နဲ့ ကိုယ့်ပုံ တင်ပြီး စာသား overlay ပဲ သုံးပါ။", "err");
+  } else {
+    setStatus("အဆင်မပြေပါ: " + (lastErr ? lastErr.message : "unknown error"), "err");
+  }
+};
+
+// ---------- background upload (no Gemini needed) ----------
+$("bgUpload").addEventListener("change", () => {
+  const f = $("bgUpload").files[0];
+  if (!f) return;
+  const rd = new FileReader();
+  rd.onload = () => {
+    const img = new Image();
+    img.onload = () => {
+      baseImg = img; draw();
+      $("dlPng").disabled = $("dlJpg").disabled = false;
+      setStatus("နောက်ခံပုံ ရပြီ ✅ စာသားတွေ ဖြည့်ပြီး download လုပ်လို့ ရပြီ။", "good");
+    };
+    img.src = rd.result;
+  };
+  rd.readAsDataURL(f);
+});
+
+// ---------- free backup (pollinations.ai, no key) ----------
+function loadBaseImage(url, useCors, done) {
+  const img = new Image();
+  if (useCors) img.crossOrigin = "anonymous";
+  img.onload = () => done(null, img);
+  img.onerror = () => done(new Error("load failed"));
+  img.src = url;
+}
+
+$("freeBtn").onclick = () => {
+  const bg = $("bgInput").value.trim() || "Golden";
+  const subject = $("subjectInput").value.trim() ||
+    "a dignified elderly Burmese Buddhist monk abbot in maroon robes";
+  const prompt = "YouTube thumbnail background art, 16:9 widescreen composition. " +
+    "Place the subject on the RIGHT side of the frame: " + subject + ". " +
+    "Background: " + bg + ". Cinematic, HDR, dramatic eye-catching lighting. " +
+    "The LEFT half of the frame must be darker, smooth and completely empty, reserved for big title text. " +
+    "Absolutely no text, no letters, no words, no watermark anywhere in the image.";
+  const seed = Math.floor(Math.random() * 1000000);
+  const url = "https://image.pollinations.ai/prompt/" + encodeURIComponent(prompt) +
+    "?width=1920&height=1080&seed=" + seed + "&nologo=true";
+  $("freeBtn").disabled = true;
+  setStatus("Free backup (pollinations) နဲ့ ထုတ်နေတယ်… တစ်ခါတလေ ၁ မိနစ်လောက် ကြာနိုင်တယ်။");
+  const finish = img => {
+    baseImg = img; draw();
+    $("dlPng").disabled = $("dlJpg").disabled = false;
+    setStatus("ရပြီ ✅ (free backup) — စာသားပြင်ရင် preview တန်းပြင်တယ်။ ထပ်ထုတ်ရင် ပုံအသစ် ရမယ်။", "good");
+    $("freeBtn").disabled = false;
+  };
+  loadBaseImage(url, true, (err, img) => {
+    if (!err) { finish(img); return; }
+    // retry without CORS (preview still works; download may be limited)
+    loadBaseImage(url + "&retry=1", false, (err2, img2) => {
+      if (!err2) { finish(img2); return; }
+      setStatus("Free backup က ပုံ မရပါ — ခဏစောင့်ပြီး ပြန်စမ်းကြည့်ပါ။ (သို့) နောက်ခံပုံ upload သုံးပါ။", "err");
+      $("freeBtn").disabled = false;
+    });
+  });
+};
+
+// ---------- downloads ----------
+function download(type) {
+  cv.toBlob(b => {
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(b);
+    a.download = "youtube-thumbnail." + (type === "image/png" ? "png" : "jpg");
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+  }, type, 0.92);
+}
+$("dlPng").onclick = () => download("image/png");
+$("dlJpg").onclick = () => download("image/jpeg");
+
+// ---------- init ----------
+(async () => {
+  try {
+    const saved = await idbGet("customFont");
+    if (saved && saved.buf) await registerFont(saved.buf, saved.name);
+  } catch (e) {}
+  try {
+    await Promise.race([
+      Promise.all([
+        document.fonts.load('900 100px "Noto Sans Myanmar"'),
+        document.fonts.load('700 100px "Noto Sans Myanmar"')
+      ]),
+      new Promise(r => setTimeout(r, 2500))
+    ]);
+  } catch (e) {}
+  draw();
+  discoverModels();
+})();
+</script>
+</body>
+</html>
